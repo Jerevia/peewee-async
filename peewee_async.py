@@ -19,15 +19,14 @@ import uuid
 import contextlib
 import peewee
 import warnings
-import logging
 
 logger = logging.getLogger('peewee.async')
 logger.addHandler(logging.NullHandler())
 
 try:
-    import aiopg
+    import asyncpg
 except ImportError:
-    aiopg = None
+    asyncpg = None
 
 try:
     import aiomysql
@@ -108,7 +107,7 @@ class Manager:
 
     def __init__(self, database=None, *, loop=None):
         assert database or self.database, \
-               ("Error, database must be provided via "
+            ("Error, database must be provided via "
                 "argument or class member.")
 
         self.database = database or self.database
@@ -160,7 +159,7 @@ class Manager:
             model = source_
 
         conditions = list(args) + [(getattr(model, k) == v)
-            for k, v in kwargs.items()]
+                                   for k, v in kwargs.items()]
 
         if conditions:
             query = query.where(*conditions)
@@ -198,7 +197,7 @@ class Manager:
         except model_.DoesNotExist:
             data = defaults or {}
             data.update({k: v for k, v in kwargs.items()
-                if not '__' in k})
+                         if not '__' in k})
             return (yield from self.create(model_, **data)), True
 
     @asyncio.coroutine
@@ -436,7 +435,7 @@ def execute(query):
 @asyncio.coroutine
 def create_object(model, **data):
     """Create object asynchronously.
-    
+
     :param model: mode class
     :param data: data for initializing object
     :return: new object saved to database
@@ -459,7 +458,7 @@ def create_object(model, **data):
     if pk is None:
         pk = obj._get_pk_value()
     obj._set_pk_value(pk)
-    
+
     obj._prepare_instance()
 
     return obj
@@ -768,6 +767,7 @@ class AsyncQueryWrapper:
     To retrieve results after async fetching just iterate over this class
     instance, like you generally iterate over sync results wrapper.
     """
+
     def __init__(self, *, cursor=None, query=None):
         self._initialized = False
         self._cursor = cursor
@@ -1007,7 +1007,7 @@ class AsyncDatabase:
             try:
                 self.close()
             except self.Error:
-                pass # already closed
+                pass  # already closed
 
         self._allow_sync = old_allow_sync
 
@@ -1032,11 +1032,12 @@ class AsyncDatabase:
 class AsyncPostgresqlConnection:
     """Asynchronous database connection pool.
     """
+
     def __init__(self, *, database=None, loop=None, timeout=None, **kwargs):
         self.pool = None
         self.loop = loop
         self.database = database
-        self.timeout = timeout or aiopg.DEFAULT_TIMEOUT
+        self.timeout = timeout or asyncpg.DEFAULT_TIMEOUT
         self.connect_kwargs = kwargs
 
     @asyncio.coroutine
@@ -1054,7 +1055,7 @@ class AsyncPostgresqlConnection:
     def connect(self):
         """Create connection pool asynchronously.
         """
-        self.pool = yield from aiopg.create_pool(
+        self.pool = yield from asyncpg.create_pool(
             loop=self.loop,
             timeout=self.timeout,
             database=self.database,
@@ -1096,21 +1097,21 @@ class AsyncPostgresqlMixin(AsyncDatabase):
     """Mixin for `peewee.PostgresqlDatabase` providing extra methods
     for managing async connection.
     """
-    if aiopg:
+    if asyncpg:
         import psycopg2
         Error = psycopg2.Error
 
     def init_async(self, conn_cls=AsyncPostgresqlConnection,
                    enable_json=False, enable_hstore=False):
-        if not aiopg:
-            raise Exception("Error, aiopg is not installed!")
+        if not asyncpg:
+            raise Exception("Error, asyncpg is not installed!")
         self._async_conn_cls = conn_cls
         self._enable_json = enable_json
         self._enable_hstore = enable_hstore
 
     @property
     def connect_kwargs_async(self):
-        """Connection parameters for `aiopg.Connection`
+        """Connection parameters for `asyncpg.Connection`
         """
         kwargs = self.connect_kwargs.copy()
         kwargs.update({
@@ -1157,6 +1158,7 @@ class PostgresqlDatabase(AsyncPostgresqlMixin, peewee.PostgresqlDatabase):
     See also:
     http://peewee.readthedocs.io/en/latest/peewee/api.html#PostgresqlDatabase
     """
+
     def init(self, database, **kwargs):
         self.min_connections = 1
         self.max_connections = 1
@@ -1185,6 +1187,7 @@ class PooledPostgresqlDatabase(AsyncPostgresqlMixin, peewee.PostgresqlDatabase):
     See also:
     http://peewee.readthedocs.io/en/latest/peewee/api.html#PostgresqlDatabase
     """
+
     def init(self, database, **kwargs):
         self.min_connections = kwargs.pop('min_connections', 1)
         self.max_connections = kwargs.pop('max_connections', 20)
@@ -1208,6 +1211,7 @@ class PooledPostgresqlDatabase(AsyncPostgresqlMixin, peewee.PostgresqlDatabase):
 class AsyncMySQLConnection:
     """Asynchronous database connection pool.
     """
+
     def __init__(self, *, database=None, loop=None, timeout=None, **kwargs):
         self.pool = None
         self.loop = loop
@@ -1331,6 +1335,7 @@ class PooledMySQLDatabase(MySQLDatabase):
     See also:
     http://peewee.readthedocs.io/en/latest/peewee/api.html#MySQLDatabase
     """
+
     def init(self, database, **kwargs):
         min_connections = kwargs.pop('min_connections', 1)
         max_connections = kwargs.pop('max_connections', 10)
@@ -1368,6 +1373,7 @@ class UnwantedSyncQueryError(Exception):
 
     NOTE: UnwantedSyncQueryError is deprecated, `assert` is used instead.
     """
+
     def __init__(self, *args, **kwargs):
         warnings.warn("UnwantedSyncQueryError is deprecated, "
                       "assert is used instead.",
@@ -1384,6 +1390,7 @@ class transaction:
     `peewee.transaction()`. Will start new `asyncio` task for
     transaction if not started already.
     """
+
     def __init__(self, db):
         self.db = db
         self.loop = db.loop
@@ -1428,6 +1435,7 @@ class savepoint:
     """Asynchronous context manager (`async with`), similar to
     `peewee.savepoint()`.
     """
+
     def __init__(self, db, sid=None):
         self.db = db
         self.sid = sid or 's' + uuid.uuid4().hex
@@ -1465,6 +1473,7 @@ class atomic:
     """Asynchronous context manager (`async with`), similar to
     `peewee.atomic()`.
     """
+
     def __init__(self, db):
         self.db = db
 
@@ -1531,6 +1540,7 @@ class TaskLocals:
 
     When task is done, all saved values is removed from stored data.
     """
+
     def __init__(self, loop):
         self.loop = loop
         self.data = {}

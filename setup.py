@@ -41,7 +41,8 @@ setup(
     license='MIT',
     zip_safe=False,
     install_requires=(
-        'peewee >= 2.8.0',
+        'asyncpg >= 0.11.0',
+        'peewee >= 2.8.0'
     ),
     py_modules=[
         'peewee_async',
