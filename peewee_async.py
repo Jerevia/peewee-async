@@ -1037,7 +1037,7 @@ class AsyncPostgresqlConnection:
         self.pool = None
         self.loop = loop
         self.database = database
-        self.timeout = timeout or asyncpg.DEFAULT_TIMEOUT
+        self.timeout = timeout or 5
         self.connect_kwargs = kwargs
 
     @asyncio.coroutine
